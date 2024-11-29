@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" type="text/css" href="../static/styles_interface.css">
+    <script src="https://unpkg.com/htmx.org"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>Interfaz Principal</title>
+</head>
+<body>
+    <header>
+        <h1>Bienvenido, {{ user.username }}</h1>
+    </header>
+    <main>
+        <section class="options">
+            <h2>Opciones</h2>
+            <nav>
+                <a href="/profile">Ver Perfil</a>
+                <a href="/logout">Salir de Sesión</a>
+            </nav>
+        </section>
+        <section class="trading">
+            <form hx-post="/upload_csv"
+                  hx-target="#results-section"
+                  hx-encoding="multipart/form-data">
+               
+
+                <div class="form-group">
+                    <label>Selecciona el modelo:</label>
+                    <select name="model" required>
+                        <option value="amazon">Modelo Amazon</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Cantidad de dinero:</label>
+                    <input type="number" name="amount" required>
+                </div>
+                <div class="form-group">
+                    <label>Días a holdear:</label>
+                    <input type="number" name="holding_days" required>
+                </div>
+                <button type="submit">Procesar</button>
+            </form>
+        </section>
+        <section id="results-section">
+            {% if predictions %}
+            <div class="results-card">
+                <h3>Resultados del Análisis</h3>
+                <div class="results-grid">
+                    <div class="result-item">
+                        <label>Capital Inicial:</label>
+                        <span>${{ predictions.prediction.capital_inicial | round(2) }}</span>
+                    </div>
+                    <div class="result-item">
+                        <label>Capital Final:</label>
+                        <span>${{ predictions.prediction.capital_final | round(2) }}</span>
+                    </div>
+                    <div class="result-item">
+                        <label>Retorno:</label>
+                        <span class="{{ 'positive' if predictions.prediction.retorno_porcentual > 0 else 'negative' }}">
+                            {{ predictions.prediction.retorno_porcentual | round(2) }}%
+                        </span>
+                    </div>
+                    <div class="result-item">
+                        <label>Cantidad de Acciones:</label>
+                        <span>{{ predictions.prediction.cantidad_acciones | round(2) }}</span>
+                    </div>
+                    <div class="result-item">
+                        <label>Precio Inicial:</label>
+                        <span>${{ predictions.prediction.precio_inicial | round(2) }}</span>
+                    </div>
+                    <div class="result-item">
+                        <label>Precio Final Estimado:</label>
+                        <span>${{ predictions.prediction.precio_final | round(2) }}</span>
+                    </div>
+                </div>
+                <div class="chart-container" style="position: relative; height:400px; width:100%; margin-top: 2rem;">
+                    <canvas id="predictionChart"></canvas>
+                </div>
+            </div>
+            <script>
+                const ctx = document.getElementById('predictionChart').getContext('2d');
+                const capitalInicial = {{ predictions.capital_inicial }};
+                const capitalFinal = {{ predictions.capital_final }};
+                const diasHolding = {{ predictions.holding_days | default(1) }};
+                
+                // Crear un array de días
+                const dias = Array.from({length: diasHolding + 1}, (_, i) => `Día ${i}`);
+                
+                // Calcular la progresión lineal del capital
+                const capitalProgression = Array.from({length: diasHolding + 1}, (_, i) => {
+                    const progress = i / diasHolding;
+                    return capitalInicial + (capitalFinal - capitalInicial) * progress;
+                });
+
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: dias,
+                        datasets: [{
+                            label: 'Proyección de Capital',
+                            data: capitalProgression,
+                            borderColor: capitalFinal > capitalInicial ? '#2ecc71' : '#e74c3c',
+                            backgroundColor: capitalFinal > capitalInicial ? 'rgba(46, 204, 113, 0.1)' : 'rgba(231, 76, 60, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Proyección del Capital en el Tiempo'
+                            },
+                            legend: {
+                                position: 'bottom'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                ticks: {
+                                    callback: function(value) {
+                                        return '$' + value.toFixed(2);
+                                    }
+                                }
+                            }
+                        },
+                        interaction: {
+                            intersect: false,
+                            mode: 'index'
+                        }
+                    }
+                });
+            </script>
+            {% endif %}
+        </section>
+    </main>
+    <footer>
+        <p>&copy; 2024 Fishnet - Potenciado por Ciencia de Datos</p>
+    </footer>
+</body>
+</html>

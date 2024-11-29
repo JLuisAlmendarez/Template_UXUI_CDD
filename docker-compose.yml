@@ -1,0 +1,60 @@
+services:
+  app:
+    build:
+      context: ./app
+    container_name: app_container
+    ports:
+      - "5010:5010"
+    volumes:
+      - ./app:/app  # Cambia el volumen a la carpeta correcta en el contenedor
+    environment:
+      - FLASK_ENV=development
+      - MONGO_URI=mongodb://mongo:27017
+    depends_on:
+      - mongo  # Asegura que Mongo esté iniciado antes que app
+    networks:
+      - app_network
+
+  ml_models:
+    build:
+      context: ./ml_models
+    container_name: ml_container
+    ports:
+      - "5011:5011"
+    volumes:
+      - ./ml_models:/app
+    networks:
+      - app_network
+
+  orchestrator:
+    build:
+      context: ./orchestrator
+    container_name: orchestrator_container
+    ports:
+      - "5012:5012"
+    volumes:
+      - ./orchestrator:/app
+    depends_on:
+      - app
+      - ml_models
+    networks:
+      - app_network
+
+  mongo:
+    image: mongo
+    container_name: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - app_network
+
+# Volumen persistente para MongoDB
+volumes:
+  mongo_data:
+
+# Red para todos los servicios
+networks:
+  app_network:
+    driver: bridge
